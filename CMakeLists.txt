@@ -20,3 +20,8 @@ qt_add_executable(QTxLights WIN32
 )
 
 target_link_libraries(QTxLights PRIVATE Qt6::Widgets)
+
+# Enable /Zc:__cplusplus for MSVC to properly report C++17 support
+if(MSVC)
+    target_compile_options(QTxLights PRIVATE /Zc:__cplusplus)
+endif()
