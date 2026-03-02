@@ -36,11 +36,8 @@ class SequenceGrid : public QAbstractScrollArea
 public:
     explicit SequenceGrid(QWidget* parent = nullptr);
 
-    // Replace all content with the timing tracks from a parsed .xsq file.
+    // Replace all content with data from a parsed .xsq file.
     void loadFromXsq(const XsqSequence& xsq);
-
-    // Populate with built-in sample data for development and testing.
-    void loadSampleData();
 
     // Scale the frame cells by factor (clamped to a sensible range).
     void zoom(double factor);

@@ -6,10 +6,12 @@
 // Forward declarations for internal helpers
 // ---------------------------------------------------------------------------
 
-static void             parseHead(QXmlStreamReader& xml, XsqSequence& seq);
-static QVector<TimingMark> parseEffectLayer(QXmlStreamReader& xml);
-static TimingTrack      parseTimingElement(QXmlStreamReader& xml);
-static void             parseElementEffects(QXmlStreamReader& xml, XsqSequence& seq);
+static void                    parseHead(QXmlStreamReader& xml, XsqSequence& seq);
+static QVector<TimingMark>     parseTimingEffectLayer(QXmlStreamReader& xml);
+static TimingTrack             parseTimingElement(QXmlStreamReader& xml);
+static QVector<ModelEffect>    parseModelEffectLayer(QXmlStreamReader& xml);
+static ModelElement            parseModelElement(QXmlStreamReader& xml);
+static void                    parseElementEffects(QXmlStreamReader& xml, XsqSequence& seq);
 
 // ---------------------------------------------------------------------------
 // parseHead
@@ -63,12 +65,12 @@ static void parseHead(QXmlStreamReader& xml, XsqSequence& seq)
 }
 
 // ---------------------------------------------------------------------------
-// parseEffectLayer
+// parseTimingEffectLayer
 //
-// Reads one <EffectLayer> element and returns the timing marks inside it.
+// Reads one <EffectLayer> inside a timing element and returns the marks.
 // Exits when the </EffectLayer> end element is reached.
 // ---------------------------------------------------------------------------
-static QVector<TimingMark> parseEffectLayer(QXmlStreamReader& xml)
+static QVector<TimingMark> parseTimingEffectLayer(QXmlStreamReader& xml)
 {
     QVector<TimingMark> marks;
 
@@ -123,7 +125,7 @@ static TimingTrack parseTimingElement(QXmlStreamReader& xml)
             continue;
 
         if (xml.name() == u"EffectLayer") {
-            track.layers.append(parseEffectLayer(xml));
+            track.layers.append(parseTimingEffectLayer(xml));
         }
         else {
             xml.skipCurrentElement();
@@ -134,10 +136,80 @@ static TimingTrack parseTimingElement(QXmlStreamReader& xml)
 }
 
 // ---------------------------------------------------------------------------
+// parseModelEffectLayer
+//
+// Reads one <EffectLayer> inside a model element and returns the effects.
+// Each <Effect> uses the "ref" attribute for the effect-type name.
+// Exits when the </EffectLayer> end element is reached.
+// ---------------------------------------------------------------------------
+static QVector<ModelEffect> parseModelEffectLayer(QXmlStreamReader& xml)
+{
+    QVector<ModelEffect> effects;
+
+    while (!xml.atEnd()) {
+        xml.readNext();
+
+        if (xml.isEndElement() && xml.name() == u"EffectLayer")
+            break;
+
+        if (!xml.isStartElement() || xml.name() != u"Effect")
+            continue;
+
+        const auto attrs = xml.attributes();
+        bool startOk = false;
+        bool endOk   = false;
+
+        ModelEffect effect;
+        effect.startMs    = attrs.value(u"startTime").toInt(&startOk);
+        effect.endMs      = attrs.value(u"endTime").toInt(&endOk);
+        effect.effectType = attrs.value(u"ref").toString();
+
+        if (startOk && endOk)
+            effects.append(effect);
+
+        xml.skipCurrentElement();
+    }
+
+    return effects;
+}
+
+// ---------------------------------------------------------------------------
+// parseModelElement
+//
+// Reads an <Element type="model"> node and returns a populated ModelElement.
+// Each <EffectLayer> child becomes one entry in ModelElement::layers.
+// Exits when the </Element> end element is reached.
+// ---------------------------------------------------------------------------
+static ModelElement parseModelElement(QXmlStreamReader& xml)
+{
+    ModelElement element;
+    element.name = xml.attributes().value(u"name").toString();
+
+    while (!xml.atEnd()) {
+        xml.readNext();
+
+        if (xml.isEndElement() && xml.name() == u"Element")
+            break;
+
+        if (!xml.isStartElement())
+            continue;
+
+        if (xml.name() == u"EffectLayer") {
+            element.layers.append(parseModelEffectLayer(xml));
+        }
+        else {
+            xml.skipCurrentElement();
+        }
+    }
+
+    return element;
+}
+
+// ---------------------------------------------------------------------------
 // parseElementEffects
 //
-// Reads the <ElementEffects> block, collecting every timing-type element
-// and discarding model-effect elements.
+// Reads the <ElementEffects> block, collecting timing and model elements.
+// Any other element types (submodel, group, etc.) are skipped.
 // Exits when the </ElementEffects> end element is reached.
 // ---------------------------------------------------------------------------
 static void parseElementEffects(QXmlStreamReader& xml, XsqSequence& seq)
@@ -151,11 +223,15 @@ static void parseElementEffects(QXmlStreamReader& xml, XsqSequence& seq)
         if (!xml.isStartElement() || xml.name() != u"Element")
             continue;
 
-        if (xml.attributes().value(u"type") == u"timing") {
+        const auto type = xml.attributes().value(u"type");
+
+        if (type == u"timing") {
             seq.timingTracks.append(parseTimingElement(xml));
         }
+        else if (type == u"model") {
+            seq.modelElements.append(parseModelElement(xml));
+        }
         else {
-            // Skip model effects — not needed for this feature.
             xml.skipCurrentElement();
         }
     }

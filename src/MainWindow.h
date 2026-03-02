@@ -16,7 +16,6 @@ private:
     void setupMenus();
     void setupToolBar();
     void setupCentralWidget();
-    void populateSampleData();
 
     SequenceGrid* m_grid;
     QListWidget*  m_modelList;

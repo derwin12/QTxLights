@@ -22,9 +22,26 @@ struct TimingTrack
     QVector<QVector<TimingMark>> layers;  // one entry per <EffectLayer>
 };
 
+// A single effect placed on one layer of a model.
+// effectType is the value of the "ref" attribute (e.g. "Twinkle", "Fire").
+// Palette and settings strings are intentionally omitted for now.
+struct ModelEffect
+{
+    int     startMs    = 0;
+    int     endMs      = 0;
+    QString effectType;  // from the "ref" attribute
+};
+
+// One model element from the sequence.
+// Most models have a single EffectLayer; sub-model elements may have more.
+struct ModelElement
+{
+    QString                         name;
+    QVector<QVector<ModelEffect>>   layers;  // one entry per <EffectLayer>
+};
+
 // Everything we extract from parsing an .xsq file.
 // This struct intentionally contains only the data we currently use.
-// Non-timing effects and model data are skipped during parsing.
 struct XsqSequence
 {
     // Metadata from <head>
@@ -34,7 +51,8 @@ struct XsqSequence
     int     frameDurationMs = 20;    // parsed from <sequenceTiming>, e.g. "20 ms"
     double  durationSeconds = 0.0;   // parsed from <sequenceDuration>
 
-    QVector<TimingTrack> timingTracks;
+    QVector<TimingTrack>  timingTracks;
+    QVector<ModelElement> modelElements;
 
     // Non-empty when parsing failed; describes the problem.
     QString parseError;

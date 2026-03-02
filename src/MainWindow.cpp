@@ -12,12 +12,6 @@
 #include <QFileDialog>
 #include <QFileInfo>
 
-static const QStringList SAMPLE_MODELS = {
-    "Mega Tree", "Matrix 1", "Arches 1", "Arches 2",
-    "Arches 3",  "Arches 4", "Roofline", "Candy Canes",
-    "Stars",     "Spinner",  "Icicles",  "Window Frames",
-};
-
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
@@ -30,11 +24,9 @@ MainWindow::MainWindow(QWidget* parent)
     setupMenus();
     setupToolBar();
     setupCentralWidget();
-    populateSampleData();
 
-    m_statusLabel = new QLabel("Ready");
+    m_statusLabel = new QLabel("Open an .xsq sequence file to begin  (File \u2192 Open)");
     statusBar()->addWidget(m_statusLabel);
-    statusBar()->addPermanentWidget(new QLabel("Frame: 0 / 400  |  FPS: 20"));
 }
 
 // ---------------------------------------------------------------------------
@@ -140,17 +132,6 @@ void MainWindow::setupCentralWidget()
 }
 
 // ---------------------------------------------------------------------------
-// populateSampleData
-// ---------------------------------------------------------------------------
-void MainWindow::populateSampleData()
-{
-    m_listHeader->setText("Models");
-    m_modelList->clear();
-    m_modelList->addItems(SAMPLE_MODELS);
-    m_grid->loadSampleData();
-}
-
-// ---------------------------------------------------------------------------
 // onNewSequence
 // ---------------------------------------------------------------------------
 void MainWindow::onNewSequence()
@@ -186,11 +167,14 @@ void MainWindow::onOpenSequence()
     // Update the grid.
     m_grid->loadFromXsq(seq);
 
-    // Update the left-panel list to show timing track names.
-    m_listHeader->setText("Timing Tracks");
+    // Update the left-panel list.
+    // Timing tracks are prefixed with [T] so they stand out from model rows.
+    m_listHeader->setText("Elements");
     m_modelList->clear();
     for (const TimingTrack& track : seq.timingTracks)
-        m_modelList->addItem(track.name);
+        m_modelList->addItem(QStringLiteral("[T]  %1").arg(track.name));
+    for (const ModelElement& element : seq.modelElements)
+        m_modelList->addItem(element.name);
 
     // Update the window title to reflect the loaded song or filename.
     const QString title = seq.song.isEmpty()
@@ -199,11 +183,12 @@ void MainWindow::onOpenSequence()
     setWindowTitle(QStringLiteral("QTxLights \u2014 ") + title);
 
     // Report a concise summary in the status bar.
-    const int trackCount = seq.timingTracks.size();
     m_statusLabel->setText(
-        QStringLiteral("Loaded: %1 timing track%2  |  %3 frames @ %4 ms/frame")
-            .arg(trackCount)
-            .arg(trackCount == 1 ? "" : "s")
+        QStringLiteral("Loaded: %1 timing track%2, %3 model%4  |  %5 frames @ %6 ms/frame")
+            .arg(seq.timingTracks.size())
+            .arg(seq.timingTracks.size() == 1 ? "" : "s")
+            .arg(seq.modelElements.size())
+            .arg(seq.modelElements.size() == 1 ? "" : "s")
             .arg(seq.totalFrames())
             .arg(seq.frameDurationMs)
     );
