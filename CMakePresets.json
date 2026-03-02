@@ -1,0 +1,51 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "x64-Debug",
+      "displayName": "x64 Debug (Qt/MinGW)",
+      "description": "Debug build using Qt 6 MinGW toolchain",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE":    "Debug",
+        "CMAKE_PREFIX_PATH":   "D:/Qt/6.10.2/mingw_64",
+        "CMAKE_C_COMPILER":    "D:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER":  "D:/Qt/Tools/mingw1310_64/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM":  "D:/Qt/Tools/Ninja/ninja.exe"
+      },
+      "environment": {
+        "PATH": "D:/Qt/Tools/mingw1310_64/bin;D:/Qt/6.10.2/mingw_64/bin;D:/Qt/Tools/Ninja;$penv{PATH}"
+      }
+    },
+    {
+      "name": "x64-Release",
+      "displayName": "x64 Release (Qt/MinGW)",
+      "description": "Optimised release build using Qt 6 MinGW toolchain",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE":    "Release",
+        "CMAKE_PREFIX_PATH":   "D:/Qt/6.10.2/mingw_64",
+        "CMAKE_C_COMPILER":    "D:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER":  "D:/Qt/Tools/mingw1310_64/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM":  "D:/Qt/Tools/Ninja/ninja.exe"
+      },
+      "environment": {
+        "PATH": "D:/Qt/Tools/mingw1310_64/bin;D:/Qt/6.10.2/mingw_64/bin;D:/Qt/Tools/Ninja;$penv{PATH}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-Debug",
+      "displayName": "x64 Debug",
+      "configurePreset": "x64-Debug"
+    },
+    {
+      "name": "x64-Release",
+      "displayName": "x64 Release",
+      "configurePreset": "x64-Release"
+    }
+  ]
+}

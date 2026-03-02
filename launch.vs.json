@@ -1,0 +1,24 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "name": "QTxLights (Debug)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "QTxLights.exe (out\\x64-Debug\\QTxLights.exe)",
+      "env": {
+        "PATH": "D:/Qt/6.10.2/mingw_64/bin;D:/Qt/Tools/mingw1310_64/bin;${env.PATH}"
+      }
+    },
+    {
+      "type": "default",
+      "name": "QTxLights (Release)",
+      "project": "CMakeLists.txt",
+      "projectTarget": "QTxLights.exe (out\\x64-Release\\QTxLights.exe)",
+      "env": {
+        "PATH": "D:/Qt/6.10.2/mingw_64/bin;D:/Qt/Tools/mingw1310_64/bin;${env.PATH}"
+      }
+    }
+  ]
+}
