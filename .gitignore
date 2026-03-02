@@ -6,3 +6,5 @@ cmake_install.cmake
 .qmake.stash
 /.vs/New folder
 /.vs
+/out/x64-Debug
+/out/x64-Release
