@@ -36,6 +36,33 @@ static const QColor TIMING_PALETTE[] = {
 static constexpr int TIMING_PALETTE_SIZE =
     static_cast<int>(std::size(TIMING_PALETTE));
 
+// Colour palette for model effects, indexed by a hash of the effect-type name.
+// This gives every instance of the same effect type a consistent colour across
+// all models without needing to parse the palette attribute.
+static const QColor EFFECT_PALETTE[] = {
+    {  0, 150, 255},
+    {255, 120,   0},
+    {  0, 190,  90},
+    {190,  50, 190},
+    {230, 185,   0},
+    { 70, 190, 240},
+    {240,  70, 110},
+    { 90, 210,  70},
+    {240, 145,  35},
+    { 50, 190, 240},
+    {200,  80,  40},
+    { 60, 210, 180},
+};
+static constexpr int EFFECT_PALETTE_SIZE =
+    static_cast<int>(std::size(EFFECT_PALETTE));
+
+// Returns a stable colour for an effect type name.
+static QColor colorForEffectType(const QString& effectType)
+{
+    const auto idx = static_cast<size_t>(qHash(effectType)) % EFFECT_PALETTE_SIZE;
+    return EFFECT_PALETTE[idx];
+}
+
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
@@ -62,6 +89,7 @@ void SequenceGrid::loadFromXsq(const XsqSequence& xsq)
     m_selectedCol = -1;
     m_totalFrames = xsq.totalFrames();
 
+    // --- Timing tracks (top section, matching xLights layout) ---
     int colorIdx = 0;
     for (const TimingTrack& track : xsq.timingTracks) {
         const int     layerCount = track.layers.size();
@@ -88,62 +116,27 @@ void SequenceGrid::loadFromXsq(const XsqSequence& xsq)
         ++colorIdx;
     }
 
-    updateScrollBars();
-    viewport()->update();
-}
+    // --- Model rows (below timing tracks) ---
+    for (const ModelElement& element : xsq.modelElements) {
+        const int layerCount = element.layers.size();
 
-// ---------------------------------------------------------------------------
-// loadSampleData
-//
-// Fills the grid with hard-coded data for development and UI testing.
-// ---------------------------------------------------------------------------
-void SequenceGrid::loadSampleData()
-{
-    static const QStringList MODEL_NAMES = {
-        "Mega Tree", "Matrix 1", "Arches 1", "Arches 2",
-        "Arches 3",  "Arches 4", "Roofline", "Candy Canes",
-        "Stars",     "Spinner",  "Icicles",  "Window Frames",
-    };
+        for (int layerIdx = 0; layerIdx < layerCount; ++layerIdx) {
+            const int rowIndex = m_rows.size();
 
-    m_rows.clear();
-    m_blocks.clear();
-    m_selectedRow = -1;
-    m_selectedCol = -1;
-    m_totalFrames = 400;
+            const QString rowName = (layerCount > 1)
+                ? QStringLiteral("%1 [%2]").arg(element.name).arg(layerIdx + 1)
+                : element.name;
 
-    for (const QString& name : MODEL_NAMES)
-        m_rows.append({RowType::Model, name});
+            m_rows.append({RowType::Model, rowName});
 
-    struct Sample { int row, s, e; QColor c; const char* label; };
-    static const Sample DATA[] = {
-        { 0,   0,  60, {  0,160,255}, "Twinkle"      },
-        { 0,  80, 150, {255,100,  0}, "Bars"          },
-        { 0, 200, 280, {  0,200,100}, "Wave"          },
-        { 1,  10,  80, {200, 50,200}, "Spiral"        },
-        { 1, 100, 180, {255,200,  0}, "Fire"          },
-        { 2,   0,  40, {  0,200,200}, "On"            },
-        { 2,  50, 120, {255, 80, 80}, "Wipe"          },
-        { 2, 150, 240, {100,200,  0}, "Morph"         },
-        { 3,  20, 100, {255,160, 20}, "Brightness"    },
-        { 3, 120, 200, { 80,120,255}, "Color Wash"    },
-        { 4,   0,  80, {200,200, 50}, "Curtain"       },
-        { 4, 100, 180, {255, 50,150}, "Pinwheel"      },
-        { 5,  30, 110, {  0,180,255}, "Marquee"       },
-        { 5, 130, 230, {200, 80, 30}, "Snowflakes"    },
-        { 6,   0,  60, {150,255,100}, "Butterfly"     },
-        { 6,  80, 160, {255,200,100}, "Kaleidoscope"  },
-        { 7,  20,  90, {100,100,255}, "Piano"         },
-        { 7, 110, 200, {255, 80, 80}, "Shockwave"     },
-        { 8,   0, 130, { 80,230,200}, "Galaxy"        },
-        { 9,  40, 180, {230,100,230}, "Liquid"        },
-        {10,   0,  50, {255,160, 40}, "Glitter"       },
-        {10,  70, 170, { 60,200,255}, "Lightning"     },
-        {11,  10, 100, {200,255, 80}, "Ripple"        },
-        {11, 120, 300, {255,100,150}, "Fire"          },
-    };
-
-    for (const auto& d : DATA)
-        m_blocks.append({d.row, d.s, d.e, d.c, d.label});
+            for (const ModelEffect& effect : element.layers[layerIdx]) {
+                const int    startFrame = effect.startMs / xsq.frameDurationMs;
+                const int    endFrame   = effect.endMs   / xsq.frameDurationMs;
+                const QColor color      = colorForEffectType(effect.effectType);
+                m_blocks.append({rowIndex, startFrame, endFrame, color, effect.effectType});
+            }
+        }
+    }
 
     updateScrollBars();
     viewport()->update();
