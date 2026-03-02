@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "SequenceGrid.h"
+#include "XsqFile.h"
 #include <QMenuBar>
 #include <QToolBar>
 #include <QStatusBar>
@@ -8,6 +9,8 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QMessageBox>
+#include <QFileDialog>
+#include <QFileInfo>
 
 static const QStringList SAMPLE_MODELS = {
     "Mega Tree", "Matrix 1", "Arches 1", "Arches 2",
@@ -15,6 +18,9 @@ static const QStringList SAMPLE_MODELS = {
     "Stars",     "Spinner",  "Icicles",  "Window Frames",
 };
 
+// ---------------------------------------------------------------------------
+// Construction
+// ---------------------------------------------------------------------------
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
@@ -31,15 +37,18 @@ MainWindow::MainWindow(QWidget* parent)
     statusBar()->addPermanentWidget(new QLabel("Frame: 0 / 400  |  FPS: 20"));
 }
 
+// ---------------------------------------------------------------------------
+// setupMenus
+// ---------------------------------------------------------------------------
 void MainWindow::setupMenus()
 {
     QMenuBar* mb = menuBar();
 
     QMenu* file = mb->addMenu("&File");
-    file->addAction("&New Sequence",    QKeySequence::New,  this, &MainWindow::onNewSequence);
-    file->addAction("&Open Sequence...",QKeySequence::Open, this, &MainWindow::onOpenSequence);
+    file->addAction("&New Sequence",     QKeySequence::New,  this, &MainWindow::onNewSequence);
+    file->addAction("&Open Sequence...", QKeySequence::Open, this, &MainWindow::onOpenSequence);
     file->addSeparator();
-    file->addAction("&Save",            QKeySequence::Save, this, &MainWindow::onSaveSequence);
+    file->addAction("&Save",             QKeySequence::Save, this, &MainWindow::onSaveSequence);
     file->addAction("Save &As...");
     file->addSeparator();
     file->addAction("&Preferences...");
@@ -76,6 +85,9 @@ void MainWindow::setupMenus()
     help->addAction("&About QTxLights...", this, &MainWindow::onAbout);
 }
 
+// ---------------------------------------------------------------------------
+// setupToolBar
+// ---------------------------------------------------------------------------
 void MainWindow::setupToolBar()
 {
     QToolBar* tb = addToolBar("Main");
@@ -93,25 +105,30 @@ void MainWindow::setupToolBar()
     tb->addAction("Zoom Out", this, &MainWindow::onZoomOut);
 }
 
+// ---------------------------------------------------------------------------
+// setupCentralWidget
+// ---------------------------------------------------------------------------
 void MainWindow::setupCentralWidget()
 {
     QSplitter* splitter = new QSplitter(Qt::Horizontal, this);
 
-    QWidget* left = new QWidget(splitter);
-    QVBoxLayout* lv = new QVBoxLayout(left);
+    // Left panel — row/track list
+    QWidget*     left = new QWidget(splitter);
+    QVBoxLayout* lv   = new QVBoxLayout(left);
     lv->setContentsMargins(0, 0, 0, 0);
     lv->setSpacing(0);
 
-    QLabel* lbl = new QLabel("Models", left);
-    lbl->setAlignment(Qt::AlignCenter);
-    lbl->setStyleSheet("background:#3c3c3c;color:white;padding:4px;font-weight:bold;");
-    lv->addWidget(lbl);
+    m_listHeader = new QLabel("Models", left);
+    m_listHeader->setAlignment(Qt::AlignCenter);
+    m_listHeader->setStyleSheet("background:#3c3c3c;color:white;padding:4px;font-weight:bold;");
+    lv->addWidget(m_listHeader);
 
     m_modelList = new QListWidget(left);
     m_modelList->setFixedWidth(160);
     m_modelList->setStyleSheet("background:#2d2d2d;color:#ccc;border:none;");
     lv->addWidget(m_modelList);
 
+    // Right panel — sequence grid
     m_grid = new SequenceGrid(splitter);
 
     splitter->addWidget(left);
@@ -122,20 +139,93 @@ void MainWindow::setupCentralWidget()
     setCentralWidget(splitter);
 }
 
+// ---------------------------------------------------------------------------
+// populateSampleData
+// ---------------------------------------------------------------------------
 void MainWindow::populateSampleData()
 {
+    m_listHeader->setText("Models");
+    m_modelList->clear();
     m_modelList->addItems(SAMPLE_MODELS);
-    m_grid->setModels(QVector<QString>(SAMPLE_MODELS.begin(), SAMPLE_MODELS.end()));
-    m_grid->setTotalFrames(400);
-    m_grid->loadSampleEffects();
+    m_grid->loadSampleData();
 }
 
-void MainWindow::onNewSequence()   { statusBar()->showMessage("New sequence"); }
-void MainWindow::onOpenSequence()  { statusBar()->showMessage("Open sequence..."); }
-void MainWindow::onSaveSequence()  { statusBar()->showMessage("Sequence saved"); }
-void MainWindow::onZoomIn()        { m_grid->zoom(1.25); }
-void MainWindow::onZoomOut()       { m_grid->zoom(0.8);  }
+// ---------------------------------------------------------------------------
+// onNewSequence
+// ---------------------------------------------------------------------------
+void MainWindow::onNewSequence()
+{
+    statusBar()->showMessage("New sequence");
+}
 
+// ---------------------------------------------------------------------------
+// onOpenSequence
+//
+// Opens a file-picker filtered to .xsq files, parses the chosen file, and
+// loads the timing tracks into the grid.
+// ---------------------------------------------------------------------------
+void MainWindow::onOpenSequence()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Open xLights Sequence"),
+        QString(),
+        tr("xLights Sequences (*.xsq);;All Files (*)")
+    );
+
+    if (path.isEmpty())
+        return;
+
+    const XsqSequence seq = parseXsqFile(path);
+
+    if (!seq.isValid()) {
+        QMessageBox::warning(this, tr("Load Error"), seq.parseError);
+        return;
+    }
+
+    // Update the grid.
+    m_grid->loadFromXsq(seq);
+
+    // Update the left-panel list to show timing track names.
+    m_listHeader->setText("Timing Tracks");
+    m_modelList->clear();
+    for (const TimingTrack& track : seq.timingTracks)
+        m_modelList->addItem(track.name);
+
+    // Update the window title to reflect the loaded song or filename.
+    const QString title = seq.song.isEmpty()
+        ? QFileInfo(path).fileName()
+        : seq.song;
+    setWindowTitle(QStringLiteral("QTxLights \u2014 ") + title);
+
+    // Report a concise summary in the status bar.
+    const int trackCount = seq.timingTracks.size();
+    m_statusLabel->setText(
+        QStringLiteral("Loaded: %1 timing track%2  |  %3 frames @ %4 ms/frame")
+            .arg(trackCount)
+            .arg(trackCount == 1 ? "" : "s")
+            .arg(seq.totalFrames())
+            .arg(seq.frameDurationMs)
+    );
+}
+
+// ---------------------------------------------------------------------------
+// onSaveSequence
+// ---------------------------------------------------------------------------
+void MainWindow::onSaveSequence()
+{
+    statusBar()->showMessage("Save — not yet implemented");
+}
+
+// ---------------------------------------------------------------------------
+// onZoomIn / onZoomOut
+// ---------------------------------------------------------------------------
+void MainWindow::onZoomIn()  { m_grid->zoom(1.25); }
+void MainWindow::onZoomOut() { m_grid->zoom(0.8);  }
+
+// ---------------------------------------------------------------------------
+// onAbout
+// ---------------------------------------------------------------------------
 void MainWindow::onAbout()
 {
     QMessageBox::about(this, "About QTxLights",

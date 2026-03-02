@@ -17,6 +17,8 @@ qt_add_executable(QTxLights WIN32
     src/MainWindow.cpp
     src/SequenceGrid.h
     src/SequenceGrid.cpp
+    src/XsqFile.h
+    src/XsqFile.cpp
 )
 
 target_link_libraries(QTxLights PRIVATE Qt6::Widgets)

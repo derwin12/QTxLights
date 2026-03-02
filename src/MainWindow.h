@@ -20,6 +20,7 @@ private:
 
     SequenceGrid* m_grid;
     QListWidget*  m_modelList;
+    QLabel*       m_listHeader;   // header label above the list panel
     QLabel*       m_statusLabel;
 
 private slots:
